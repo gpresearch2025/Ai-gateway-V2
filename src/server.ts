@@ -18,9 +18,18 @@ const maxLoginAttempts = 5;
 const loginBlockMs = 15 * 60 * 1000;
 let gateway: GatewayService;
 let auth: RbacAuthService;
+let startupPromise: Promise<void> | undefined;
 
 app.use(express.json());
 app.use(express.static(path.join(process.cwd(), "public")));
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureInitialized();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -551,13 +560,24 @@ app.get("/", (_req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "index.html"));
 });
 
-async function main() {
+export async function ensureInitialized() {
+  if (gateway && auth) {
+    return;
+  }
+  startupPromise ??= initializeApp();
+  await startupPromise;
+}
+
+async function initializeApp() {
   const runtime = await buildRuntime();
   gateway = runtime.gateway;
   auth = runtime.auth;
   await auth.seedFromEnv();
   await auth.pruneExpiredSessions();
+}
 
+async function main() {
+  await ensureInitialized();
   app.listen(port, () => {
     console.log(`AI Gateway listening on port ${port}`);
   });
@@ -824,7 +844,19 @@ function clearLoginAttempts(clientIp: string) {
   loginAttempts.delete(clientIp);
 }
 
-main().catch((error) => {
-  console.error("Failed to start AI Gateway", error);
-  process.exit(1);
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("AI Gateway request failed", error);
+  res.status(500).json({
+    ok: false,
+    error: error instanceof Error ? error.message : "gateway_initialization_failed"
+  });
 });
+
+export default app;
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error("Failed to start AI Gateway", error);
+    process.exit(1);
+  });
+}
