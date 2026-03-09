@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-gateway
+      component: api
+  template:
+    metadata:
+      labels:
+        app: ai-gateway
+        component: api
+    spec:
+      containers:
+        - name: api
+          image: ai-gateway:latest
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: ai-gateway-config
+            - secretRef:
+                name: ai-gateway-secrets
+          volumeMounts:
+            - name: gateway-data
+              mountPath: /app/data
+      volumes:
+        - name: gateway-data
+          persistentVolumeClaim:
+            claimName: ai-gateway-data

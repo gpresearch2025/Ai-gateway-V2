@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Gateway Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div id="authShell" class="auth-shell">
+      <section class="auth-card">
+        <p class="eyebrow">Secure Access</p>
+        <h1 class="auth-title">Gateway Login</h1>
+        <p class="lede">Sign in to manage routing, policy, approvals, and execution jobs.</p>
+        <form id="loginForm" class="form">
+          <label>
+            Org ID
+            <input id="loginOrgId" value="demo-org" />
+          </label>
+          <label>
+            Username
+            <input id="loginUsername" value="admin" />
+          </label>
+          <label>
+            Password
+            <input id="loginPassword" type="password" />
+          </label>
+          <button type="submit">Sign In</button>
+        </form>
+        <pre id="loginResult" class="output compact"></pre>
+      </section>
+    </div>
+
+    <main class="shell">
+      <section class="masthead">
+        <div class="masthead-copy">
+          <p class="eyebrow">Clinical AI Control Plane</p>
+          <h1>AI Gateway</h1>
+          <p class="lede">
+            Configure tenant policy, provider capabilities, identity-scoped keys, approvals, and background execution
+            from one clean operations surface.
+          </p>
+        </div>
+
+        <aside class="command-card">
+          <div class="command-top">
+            <div>
+              <p class="eyebrow">Session</p>
+              <div class="session-pill" id="sessionState">Not signed in</div>
+            </div>
+            <button id="logoutButton" class="secondary" type="button">Logout</button>
+          </div>
+
+          <div class="identity-grid">
+            <label>
+              Org ID
+              <input id="orgId" value="demo-org" />
+            </label>
+            <label>
+              User ID
+              <input id="userId" value="demo-user" />
+            </label>
+          </div>
+
+          <div class="actions">
+            <select id="sessionOrgSelect"></select>
+            <button id="switchOrgButton" class="secondary" type="button">Switch Org</button>
+          </div>
+
+          <button id="refreshButton" class="secondary" type="button">Refresh Console</button>
+          <pre id="metricsSummary" class="output compact"></pre>
+        </aside>
+      </section>
+
+      <section class="summary-grid">
+        <article class="summary-card">
+          <p class="eyebrow">Providers</p>
+          <strong id="summaryProvidersValue">0</strong>
+          <span id="summaryProvidersNote">Waiting for refresh</span>
+        </article>
+        <article class="summary-card">
+          <p class="eyebrow">Approvals</p>
+          <strong id="summaryApprovalsValue">0</strong>
+          <span id="summaryApprovalsNote">Waiting for refresh</span>
+        </article>
+        <article class="summary-card">
+          <p class="eyebrow">Jobs</p>
+          <strong id="summaryJobsValue">0</strong>
+          <span id="summaryJobsNote">Waiting for refresh</span>
+        </article>
+        <article class="summary-card">
+          <p class="eyebrow">Audit Events</p>
+          <strong id="summaryAuditValue">0</strong>
+          <span id="summaryAuditNote">Waiting for refresh</span>
+        </article>
+      </section>
+
+      <section class="alerts-panel" id="alertsPanel">
+        <div class="alerts-head">
+          <div>
+            <p class="eyebrow">Attention</p>
+            <h2>Operational Alerts</h2>
+          </div>
+          <span class="mono" id="alertsCount">0 active</span>
+        </div>
+        <div id="alertsList" class="list"></div>
+      </section>
+
+      <nav class="tabs" aria-label="Console Sections">
+        <button class="tab-button active" type="button" data-tab="overview">Overview</button>
+        <button class="tab-button" type="button" data-tab="policy">Policy</button>
+        <button class="tab-button" type="button" data-tab="requests">Requests</button>
+        <button class="tab-button" type="button" data-tab="operations">Operations</button>
+        <button class="tab-button" type="button" data-tab="admin">Admin</button>
+      </nav>
+
+      <section class="tab-panel active" data-tab-panel="overview">
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">Overview</p>
+            <h2>Provider Status And Activity</h2>
+          </div>
+        </section>
+        <section class="dashboard single-column">
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Provider State</p>
+                  <h3>Availability</h3>
+                </div>
+                <span class="mono" id="providerStatus">Loading</span>
+              </summary>
+              <div class="panel-body">
+                <div id="providersList" class="list"></div>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Trace</p>
+                  <h3>Audit Trail</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="actions">
+                  <input id="auditTypeFilter" placeholder="Filter event type" />
+                  <input id="auditUserFilter" placeholder="Filter user" />
+                  <button id="refreshAuditButton" class="secondary" type="button">Filter Audit</button>
+                  <button id="exportAuditButton" class="secondary" type="button">Export Audit</button>
+                </div>
+                <div id="auditList" class="list"></div>
+                <pre id="auditDetail" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">History</p>
+                  <h3>Request Timeline</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="actions">
+                  <input id="requestHistoryPurpose" placeholder="Filter purpose" />
+                  <input id="requestHistoryProvider" placeholder="Filter provider" />
+                  <select id="requestHistoryStatus">
+                    <option value="">All statuses</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending_approval">Pending Approval</option>
+                    <option value="denied">Denied</option>
+                    <option value="in_progress">In Progress</option>
+                  </select>
+                  <button id="refreshRequestHistoryButton" class="secondary" type="button">Filter History</button>
+                  <button id="exportRequestHistoryButton" class="secondary" type="button">Export History</button>
+                </div>
+                <div class="summary-strip" id="requestHistoryStats"></div>
+                <div id="requestHistoryList" class="list"></div>
+                <pre id="requestHistoryDetail" class="output"></pre>
+              </div>
+            </details>
+          </article>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-tab-panel="policy">
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">Configuration</p>
+            <h2>Policy And Routing</h2>
+          </div>
+        </section>
+        <section class="dashboard">
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Tenant Guardrails</p>
+                  <h3>Org Policy</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <form id="policyForm" class="form two-col">
+                  <label>
+                    Default Mode
+                    <select id="policyDefaultMode">
+                      <option value="private_plus">Private+</option>
+                      <option value="private">Private</option>
+                      <option value="max_intelligence">Max Intelligence</option>
+                    </select>
+                  </label>
+                  <label>
+                    Allowed Providers
+                    <input id="policyProviders" value="local_qwen" />
+                  </label>
+                  <label class="toggle">
+                    <input id="policyAllowByok" type="checkbox" checked />
+                    <span>Allow BYOK</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="policyAllowPlatform" type="checkbox" />
+                    <span>Allow platform-managed keys</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="policyAllowAudit" type="checkbox" checked />
+                    <span>Allow audit viewing</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="policyRequireOptIn" type="checkbox" checked />
+                    <span>Require external opt-in</span>
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Save Policy</button>
+                  </div>
+                </form>
+                <pre id="policyResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Model Rules</p>
+                  <h3>Capabilities</h3>
+                </div>
+                <span class="mono" id="capabilityStatus">Registry</span>
+              </summary>
+              <div class="panel-body">
+                <form id="capabilityForm" class="form two-col">
+                  <label>
+                    Provider
+                    <select id="capabilityProvider">
+                      <option value="local_qwen">Local Qwen</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
+                    </select>
+                  </label>
+                  <label>
+                    Model ID
+                    <input id="capabilityModelId" value="qwen3.5-4b" />
+                  </label>
+                  <label>
+                    Max Mode
+                    <select id="capabilityMaxMode">
+                      <option value="private">Private</option>
+                      <option value="private_plus">Private+</option>
+                      <option value="max_intelligence">Max Intelligence</option>
+                    </select>
+                  </label>
+                  <label class="toggle">
+                    <input id="capabilityEnabled" type="checkbox" checked />
+                    <span>Enabled</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="capabilityText" type="checkbox" checked />
+                    <span>Supports text</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="capabilityImages" type="checkbox" />
+                    <span>Supports images</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="capabilityTools" type="checkbox" />
+                    <span>Supports tools</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="capabilityReasoning" type="checkbox" />
+                    <span>Supports reasoning</span>
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Save Capability</button>
+                  </div>
+                </form>
+                <pre id="capabilityResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Purpose Control</p>
+                  <h3>Purpose Policy</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <form id="purposeForm" class="form two-col">
+                  <label>
+                    Purpose
+                    <input id="purposeName" value="explain_labs" />
+                  </label>
+                  <div class="spacer"></div>
+                  <label class="toggle">
+                    <input id="purposeAllowLocal" type="checkbox" checked />
+                    <span>Allow local</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="purposeAllowExternal" type="checkbox" checked />
+                    <span>Allow external</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="purposeRequireConsent" type="checkbox" checked />
+                    <span>Require user consent</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="purposeRequireApproval" type="checkbox" />
+                    <span>Require human approval</span>
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Save Purpose Policy</button>
+                  </div>
+                </form>
+                <pre id="purposeResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-tab-panel="requests">
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">Execution</p>
+            <h2>Requests And Credentials</h2>
+          </div>
+        </section>
+        <section class="workspace">
+          <article class="panel request-panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Interactive Request</p>
+                  <h3>Send Request</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <form id="requestForm" class="form request-grid">
+                  <label>
+                    Mode
+                    <select id="requestMode">
+                      <option value="private_plus">Private+</option>
+                      <option value="private">Private</option>
+                      <option value="max_intelligence">Max Intelligence</option>
+                    </select>
+                  </label>
+                  <label>
+                    Provider
+                    <select id="requestProvider">
+                      <option value="local_qwen">Local Qwen</option>
+                      <option value="openai">OpenAI</option>
+                      <option value="anthropic">Anthropic</option>
+                    </select>
+                  </label>
+                  <label>
+                    Credential Source
+                    <select id="requestCredentialSource">
+                      <option value="none">None</option>
+                      <option value="user_byok">User BYOK</option>
+                      <option value="org_byok">Org BYOK</option>
+                      <option value="platform_managed">Platform Managed</option>
+                    </select>
+                  </label>
+                  <label>
+                    Purpose
+                    <input id="requestPurpose" value="explain_labs" />
+                  </label>
+                  <label>
+                    Task Type
+                    <select id="requestTaskType">
+                      <option value="question_answer">Question Answer</option>
+                      <option value="summary">Summary</option>
+                      <option value="image_understanding">Image Understanding</option>
+                      <option value="document_analysis">Document Analysis</option>
+                      <option value="agent_task">Agent Task</option>
+                    </select>
+                  </label>
+                  <label>
+                    Reasoning
+                    <select id="requestReasoningMode">
+                      <option value="light">Light</option>
+                      <option value="off">Off</option>
+                      <option value="full">Full</option>
+                    </select>
+                  </label>
+                  <label class="toggle">
+                    <input id="userOptInExternal" type="checkbox" checked />
+                    <span>External opt-in granted</span>
+                  </label>
+                  <label class="toggle">
+                    <input id="consentGranted" type="checkbox" checked />
+                    <span>User consent granted for this purpose</span>
+                  </label>
+                  <div class="request-utility">
+                    <button type="button" id="saveConsentButton" class="secondary">Save User Consent</button>
+                  </div>
+                  <label class="request-span">
+                    Prompt
+                    <textarea id="requestText" rows="6">Summarize this result and explain the attached image.</textarea>
+                  </label>
+                  <label>
+                    Image URL or Data URL
+                    <textarea id="imageUrls" rows="5" placeholder="One per line"></textarea>
+                  </label>
+                  <label>
+                    Upload Images
+                    <input id="imageFiles" type="file" accept="image/*" multiple />
+                  </label>
+                  <div class="request-utility">
+                    <button type="submit">Send Gateway Request</button>
+                  </div>
+                </form>
+                <div id="requestResultSummary" class="detail-card"></div>
+                <pre id="requestResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <div class="workspace-side">
+            <article class="panel">
+              <details class="panel-toggle">
+                <summary class="panel-head">
+                  <div>
+                    <p class="eyebrow">Credential Management</p>
+                    <h3>Add Key</h3>
+                  </div>
+                </summary>
+                <div class="panel-body">
+                  <form id="keyForm" class="form">
+                    <label>
+                      Provider
+                      <select id="keyProvider">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                      </select>
+                    </label>
+                    <label>
+                      Credential Source
+                      <select id="credentialSource">
+                        <option value="user_byok">User BYOK</option>
+                        <option value="org_byok">Org BYOK</option>
+                        <option value="platform_managed">Platform Managed</option>
+                      </select>
+                    </label>
+                    <label>
+                      Label
+                      <input id="keyLabel" value="Primary Key" />
+                    </label>
+                    <label>
+                      Secret
+                      <input id="keySecret" type="password" placeholder="Paste API key" />
+                    </label>
+                    <div class="actions">
+                      <button type="button" id="testKeyButton" class="secondary">Test Key</button>
+                      <button type="submit">Save Key</button>
+                    </div>
+                  </form>
+                  <pre id="keyResult" class="output"></pre>
+                </div>
+              </details>
+            </article>
+
+            <article class="panel">
+              <details class="panel-toggle">
+                <summary class="panel-head">
+                  <div>
+                    <p class="eyebrow">Stored Credentials</p>
+                    <h3>Keys</h3>
+                  </div>
+                  <span class="mono" id="keysCount">0</span>
+                </summary>
+                <div class="panel-body">
+                  <div id="keysList" class="list"></div>
+                </div>
+              </details>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-tab-panel="operations">
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">Operations</p>
+            <h2>Approvals And Jobs</h2>
+          </div>
+        </section>
+        <section class="summary-strip two-up">
+          <div class="mini-stat">
+            <span>Approvals</span>
+            <strong id="operationsApprovalsStats">0 pending</strong>
+          </div>
+          <div class="mini-stat">
+            <span>Jobs</span>
+            <strong id="operationsJobsStats">0 active</strong>
+          </div>
+        </section>
+        <section class="dashboard single-column">
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Governance</p>
+                  <h3>Approvals</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="actions">
+                  <select id="approvalStatusFilter">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="denied">Denied</option>
+                  </select>
+                  <input id="approvalUserFilter" placeholder="Filter user" />
+                  <button id="refreshApprovalsButton" class="secondary" type="button">Filter Approvals</button>
+                  <button id="exportApprovalsButton" class="secondary" type="button">Export Approvals</button>
+                </div>
+                <div id="approvalsList" class="list"></div>
+                <pre id="approvalDetail" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle">
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Background Worker</p>
+                  <h3>Jobs</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="actions">
+                  <select id="jobStatusFilter">
+                    <option value="">All statuses</option>
+                    <option value="queued">Queued</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="dead_letter">Dead Letter</option>
+                  </select>
+                  <input id="jobUserFilter" placeholder="Filter user" />
+                  <button id="refreshJobsButton" class="secondary" type="button">Filter Jobs</button>
+                  <button id="exportJobsButton" class="secondary" type="button">Export Jobs</button>
+                </div>
+                <div id="jobsList" class="list"></div>
+                <pre id="jobDetail" class="output"></pre>
+              </div>
+            </details>
+          </article>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-tab-panel="admin">
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">Administration</p>
+            <h2>Users, Roles, And Orgs</h2>
+          </div>
+        </section>
+        <section class="workspace">
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Tenant Access</p>
+                  <h3>Create Or Update User</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <form id="userForm" class="form two-col">
+                  <label>
+                    Username
+                    <input id="adminUsername" value="new-user" />
+                  </label>
+                  <label>
+                    Password
+                    <input id="adminPassword" type="password" />
+                  </label>
+                  <label>
+                    Role
+                    <select id="adminRole">
+                      <option value="member">Member</option>
+                      <option value="auditor">Auditor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </label>
+                  <label>
+                    Org Name
+                    <input id="adminOrgName" placeholder="Optional display name" />
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Save User</button>
+                  </div>
+                </form>
+                <pre id="userResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Cross-Org Access</p>
+                  <h3>Assign User To Org</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <form id="membershipForm" class="form two-col">
+                  <label>
+                    Username
+                    <input id="membershipUsername" placeholder="existing-user" />
+                  </label>
+                  <label>
+                    Role
+                    <select id="membershipRole">
+                      <option value="member">Member</option>
+                      <option value="auditor">Auditor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </label>
+                  <label>
+                    Org ID
+                    <input id="membershipOrgId" placeholder="new-org" />
+                  </label>
+                  <label>
+                    Org Name
+                    <input id="membershipOrgName" placeholder="Display name" />
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Assign Membership</button>
+                  </div>
+                </form>
+                <pre id="membershipResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Org Membership</p>
+                  <h3>Users</h3>
+                </div>
+                <span class="mono" id="usersCount">0</span>
+              </summary>
+              <div class="panel-body">
+                <label>
+                  Search Users
+                  <input id="usersSearch" placeholder="Filter by username or role" />
+                </label>
+                <div id="usersList" class="list"></div>
+                <pre id="usersResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Tenant Directory</p>
+                  <h3>Organizations</h3>
+                </div>
+                <span class="mono" id="orgsCount">0</span>
+              </summary>
+              <div class="panel-body">
+                <form id="orgForm" class="form two-col">
+                  <label>
+                    Org ID
+                    <input id="orgManageId" placeholder="demo-org" />
+                  </label>
+                  <label>
+                    Org Name
+                    <input id="orgManageName" placeholder="Updated display name" />
+                  </label>
+                  <div class="form-span">
+                    <button type="submit">Rename Org</button>
+                  </div>
+                </form>
+                <label>
+                  Search Orgs
+                  <input id="orgsSearch" placeholder="Filter by org name or id" />
+                </label>
+                <div id="orgsList" class="list"></div>
+                <pre id="orgsResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+
+          <article class="panel">
+            <details class="panel-toggle" open>
+              <summary class="panel-head">
+                <div>
+                  <p class="eyebrow">Org Membership View</p>
+                  <h3>Selected Org Members</h3>
+                </div>
+              </summary>
+              <div class="panel-body">
+                <div class="actions">
+                  <select id="orgMembersSelect"></select>
+                  <button id="loadOrgMembersButton" class="secondary" type="button">Load Members</button>
+                </div>
+                <label>
+                  Search Members
+                  <input id="orgMembersSearch" placeholder="Filter by username or role" />
+                </label>
+                <div id="orgMembersList" class="list"></div>
+                <pre id="orgMembersResult" class="output"></pre>
+              </div>
+            </details>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>
